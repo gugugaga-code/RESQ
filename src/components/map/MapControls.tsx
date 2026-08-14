@@ -1,0 +1,6 @@
+import { Maximize2, Target } from 'lucide-react'
+import { useEffect } from 'react'
+import { useMap } from 'react-leaflet'
+import { mapConfig } from '../../config/mapConfig'
+import { useCrisisStore } from '../../store/useCrisisStore'
+export function MapControls() { const map = useMap(); const incidents = useCrisisStore((state) => state.incidents); const selectedId = useCrisisStore((state) => state.selectedIncidentId); const selected = incidents.find((item) => item.id === selectedId); const centerSelected = () => { if (selected) map.flyTo([selected.location.lat, selected.location.lng], 14, { duration: 0.7 }) }; useEffect(() => { if (selected) map.flyTo([selected.location.lat, selected.location.lng], 14, { duration: 0.7 }) }, [map, selected]); const fitAll = () => { if (incidents.length) map.fitBounds(incidents.map((item) => [item.location.lat, item.location.lng] as [number, number]), { padding: [45, 45], maxZoom: mapConfig.zoom }) }; return <div className="leaflet-top leaflet-right resq-map-controls"><button type="button" onClick={centerSelected} disabled={!selectedId} title="Center on selected incident"><Target size={16} /></button><button type="button" onClick={fitAll} title="Fit all incidents"><Maximize2 size={16} /></button></div> }

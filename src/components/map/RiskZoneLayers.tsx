@@ -1,0 +1,6 @@
+import { Polygon, Popup } from 'react-leaflet'
+import { useCrisisStore } from '../../store/useCrisisStore'
+import type { RiskLevel } from '../../types/riskZone.types'
+const colors: Record<RiskLevel, string> = { severe: '#ef5350', high: '#fb923c', moderate: '#fbbf24', low: '#35c58a' }
+const time = (value: string) => new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
+export function RiskZoneLayers() { const zones = useCrisisStore((state) => state.riskZones); return <>{zones.map((zone) => <Polygon key={zone.id} positions={zone.polygon.map((point) => [point.lat, point.lng] as [number, number])} pathOptions={{ color: colors[zone.riskLevel], fillColor: colors[zone.riskLevel], fillOpacity: 0.18, weight: 2 }}><Popup className="resq-popup"><div className="popup-content"><span className={`popup-kicker zone-${zone.riskLevel}`}>{zone.riskLevel} risk zone</span><h3>{zone.label}</h3><dl><div><dt>Reason</dt><dd>{zone.reason}</dd></div><div><dt>AI confidence</dt><dd>{zone.confidence}%</dd></div><div><dt>Generated</dt><dd>{time(zone.generatedAt)} IST</dd></div><div><dt>Expires</dt><dd>{time(zone.expiresAt)} IST</dd></div></dl></div></Popup></Polygon>)}</> }

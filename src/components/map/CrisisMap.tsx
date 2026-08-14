@@ -1,0 +1,10 @@
+import 'leaflet/dist/leaflet.css'
+import { MapContainer, TileLayer } from 'react-leaflet'
+import { mapConfig } from '../../config/mapConfig'
+import { HospitalMarkers } from './HospitalMarkers'
+import { IncidentMarkers } from './IncidentMarkers'
+import { MapControls } from './MapControls'
+import { MapLegend } from './MapLegend'
+import { ResourceMarkers } from './ResourceMarkers'
+import { RiskZoneLayers } from './RiskZoneLayers'
+export function CrisisMap() { return <div className="crisis-map"><div className="map-title"><div><p>OPERATIONAL VIEW</p><h1>CRISIS MAP</h1></div><span>LIVE OPERATIONS</span></div><MapContainer center={[mapConfig.center.lat, mapConfig.center.lng]} zoom={mapConfig.zoom} zoomControl={false} attributionControl={false} className="leaflet-canvas"><TileLayer url={mapConfig.tileUrl} attribution={mapConfig.attribution} /><RiskZoneLayers /><HospitalMarkers /><ResourceMarkers /><IncidentMarkers /><MapControls /></MapContainer><MapLegend /><div className="map-attribution" dangerouslySetInnerHTML={{ __html: mapConfig.attribution }} /></div> }
