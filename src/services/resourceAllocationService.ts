@@ -1,0 +1,30 @@
+import type { Incident, IncidentSeverity, IncidentType } from '../types/incident.types'
+import type { Resource, ResourceStatus, ResourceType } from '../types/resource.types'
+
+export type RecommendationLevel = 'primary' | 'secondary' | 'none'
+export interface ResourceAllocationRecommendation { resource: Resource; score: number; rank: number; deployable: boolean; recommended: boolean; recommendationLevel: RecommendationLevel; distanceKm: number; reasons: string[] }
+
+type Suitability = { score: number; reason: string }
+const profiles: Record<IncidentType, Partial<Record<ResourceType, Suitability>>> = {
+  fire: { fire_truck: { score: 42, reason: 'Suitable fire response unit' }, rescue_team: { score: 32, reason: 'Suitable rescue support unit' }, drone: { score: 24, reason: 'Suitable aerial assessment unit' } },
+  medical: { ambulance: { score: 42, reason: 'Suitable medical transport unit' }, medical_team: { score: 38, reason: 'Suitable medical response team' } },
+  structural_collapse: { rescue_team: { score: 42, reason: 'Suitable structural rescue team' }, ambulance: { score: 34, reason: 'Suitable casualty transport unit' }, drone: { score: 25, reason: 'Suitable aerial assessment unit' } },
+  hazmat: { fire_truck: { score: 40, reason: 'Suitable hazardous-response unit' }, medical_team: { score: 32, reason: 'Suitable medical support team' }, rescue_team: { score: 30, reason: 'Suitable rescue support unit' } },
+  accident: { ambulance: { score: 40, reason: 'Suitable casualty transport unit' }, police_unit: { score: 35, reason: 'Suitable traffic and scene-control unit' }, rescue_team: { score: 30, reason: 'Suitable rescue support unit' } },
+  flood: { rescue_team: { score: 42, reason: 'Suitable flood rescue team' }, ambulance: { score: 30, reason: 'Suitable medical transport unit' }, drone: { score: 26, reason: 'Suitable aerial assessment unit' } },
+  earthquake: { rescue_team: { score: 42, reason: 'Suitable disaster rescue team' }, medical_team: { score: 35, reason: 'Suitable medical response team' }, ambulance: { score: 32, reason: 'Suitable casualty transport unit' }, drone: { score: 24, reason: 'Suitable aerial assessment unit' } },
+  other: { rescue_team: { score: 26, reason: 'Broad emergency response capability' }, police_unit: { score: 24, reason: 'Broad scene-support capability' }, ambulance: { score: 22, reason: 'Broad medical support capability' }, medical_team: { score: 20, reason: 'Broad medical support capability' }, drone: { score: 16, reason: 'Broad situational-awareness capability' } },
+}
+const urgency: Record<IncidentSeverity, number> = { critical: 8, high: 5, medium: 3, low: 1 }
+const statusScore: Record<ResourceStatus, number> = { available: 22, busy: -8, dispatched: -13, offline: -70 }
+const earthRadiusKm = 6371
+
+export function calculateDistanceKm(incident: Incident, resource: Resource): number { const toRadians = (degrees: number) => degrees * Math.PI / 180; const latitudeDelta = toRadians(resource.location.lat - incident.location.lat); const longitudeDelta = toRadians(resource.location.lng - incident.location.lng); const a = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(toRadians(incident.location.lat)) * Math.cos(toRadians(resource.location.lat)) * Math.sin(longitudeDelta / 2) ** 2; return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) }
+
+const capacityScore = (resource: Resource, demand: number): { score: number; reason: string } => { if (resource.capacity === 0) return { score: 4, reason: 'Specialist unit with non-transport capacity' }; if (demand >= 6 && resource.capacity >= demand) return { score: 8, reason: `Capacity ${resource.capacity} meets reported demand` }; if (demand >= 6) return { score: Math.min(5, resource.capacity), reason: `Capacity ${resource.capacity} supports reported demand` }; return { score: Math.min(4, resource.capacity), reason: `Capacity ${resource.capacity}` } }
+
+export function rankResourcesForIncident(incident: Incident, resources: Resource[]): ResourceAllocationRecommendation[] { const ranked = resources.map((resource) => { const suitability = profiles[incident.type][resource.type]; const distanceKm = calculateDistanceKm(incident, resource); const deployable = resource.status === 'available' && resource.assignedIncidentId === null; const distanceScore = Math.max(0, 16 - Math.min(16, distanceKm * 2)) * (incident.severity === 'critical' ? 1.2 : incident.severity === 'high' ? 1.1 : 1); const capacity = capacityScore(resource, incident.casualtiesEstimate); const reasons = [suitability?.reason ?? 'Not a preferred resource type for this incident', `${distanceKm.toFixed(1)} km from incident`, resource.status === 'available' ? 'Currently available' : `Currently ${resource.status}` , capacity.reason]; let score = (suitability?.score ?? 0) + urgency[incident.severity] + statusScore[resource.status] + distanceScore + capacity.score; if (resource.assignedIncidentId !== null) { score -= 30; reasons.push('Already assigned to another incident') } if (resource.status === 'offline') reasons.push('Offline'); return { resource, score: Math.max(0, Math.min(100, Math.round(score))), rank: 0, deployable, recommended: false, recommendationLevel: 'none' as RecommendationLevel, distanceKm: Number(distanceKm.toFixed(2)), reasons, suitable: suitability !== undefined } }).sort((left, right) => right.score - left.score || left.distanceKm - right.distanceKm || left.resource.callSign.localeCompare(right.resource.callSign))
+  const deployableSuitable = ranked.filter((item) => item.deployable && item.suitable)
+  const recommendations = ranked.map((item, index) => { const recommendationLevel: RecommendationLevel = deployableSuitable[0] === item ? 'primary' : deployableSuitable.slice(1, 3).includes(item) ? 'secondary' : 'none'; const reasons = recommendationLevel === 'none' && deployableSuitable.length === 0 ? [...item.reasons, 'No suitable deployable resources available'] : item.reasons; const { suitable: _, ...recommendation } = item; return { ...recommendation, rank: index + 1, recommended: recommendationLevel !== 'none', recommendationLevel, reasons } })
+  return recommendations
+}
