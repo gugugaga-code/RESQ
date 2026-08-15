@@ -3,7 +3,11 @@ import { useCrisisStore } from '../../store/useCrisisStore'
 
 export function EmergencyRouteLayer() {
   const selectedIncidentId = useCrisisStore((state) => state.selectedIncidentId)
-  const route = useCrisisStore((state) => state.routes.find((item) => item.destinationId === selectedIncidentId && item.status === 'active'))
+  const route = useCrisisStore((state) => {
+    const activeRoutes = state.routes.filter((item) => item.incidentId === selectedIncidentId && item.status === 'active')
+    const selectedResourceId = state.resources.find((resource) => resource.assignedIncidentId === selectedIncidentId && resource.status === 'dispatched')?.id
+    return selectedResourceId ? activeRoutes.find((item) => item.resourceId === selectedResourceId) ?? activeRoutes[0] ?? null : activeRoutes[0] ?? null
+  })
 
   if (!route) return null
 

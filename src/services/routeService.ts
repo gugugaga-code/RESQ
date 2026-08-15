@@ -1,3 +1,4 @@
+import { env } from '../config/env'
 import type { GeoPoint } from '../types/incident.types'
 import type { EmergencyRoute } from '../types/route.types'
 
@@ -5,15 +6,33 @@ interface OsrmRouteResponse { code?: string; routes?: Array<{ distance?: number;
 
 const routeId = (resourceId: string, destinationId: string) => `route-${resourceId}-${destinationId}`
 
+const buildRouteRequestUrl = (resourceLocation: GeoPoint, destinationLocation: GeoPoint): string => {
+  const coordinates = `${resourceLocation.lng},${resourceLocation.lat};${destinationLocation.lng},${destinationLocation.lat}`
+  return `${env.routing.osrmBaseUrl}/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
+}
+
 export const createPlannedRoute = (resourceId: string, destinationId: string): EmergencyRoute => ({ id: routeId(resourceId, destinationId), resourceId, destinationId, path: [], distanceMeters: null, durationSeconds: null, status: 'planned' })
 export const createPendingRoute = (resourceId: string, destinationId: string, error: string): EmergencyRoute => ({ id: routeId(resourceId, destinationId), resourceId, destinationId, path: [], distanceMeters: null, durationSeconds: null, status: 'pending', error })
 
 export async function fetchEmergencyRoute(resourceId: string, resourceLocation: GeoPoint, destinationId: string, destinationLocation: GeoPoint): Promise<EmergencyRoute> {
-  const coordinates = `${resourceLocation.lng},${resourceLocation.lat};${destinationLocation.lng},${destinationLocation.lat}`
-  const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`)
+  const requestUrl = buildRouteRequestUrl(resourceLocation, destinationLocation)
+
+  let response: Response
+  try {
+    response = await fetch(requestUrl)
+  } catch {
+    throw new Error('Route service is currently unavailable. Please retry when connectivity is restored.')
+  }
+
   if (!response.ok) throw new Error('Route service is unavailable.')
 
-  const data = await response.json() as OsrmRouteResponse
+  let data: OsrmRouteResponse
+  try {
+    data = await response.json() as OsrmRouteResponse
+  } catch {
+    throw new Error('Unable to read the route response.')
+  }
+
   const route = data.routes?.[0]
   const coordinatesList = route?.geometry?.type === 'LineString' && Array.isArray(route.geometry.coordinates) ? route.geometry.coordinates : undefined
   if (data.code !== 'Ok' || !route || !coordinatesList || typeof route.distance !== 'number' || typeof route.duration !== 'number') throw new Error('Unable to calculate a road route.')

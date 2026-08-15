@@ -1,4 +1,4 @@
-export type OfflineActionType = 'incident_created' | 'resource_dispatched'
+export type OfflineActionType = 'incident_created' | 'resource_dispatched' | 'hospital_destination_confirmed'
 export type OfflineActionStatus = 'pending' | 'synchronized'
 
 export interface OfflineAction {
