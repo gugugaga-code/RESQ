@@ -307,6 +307,7 @@ The store currently manages:
 - routes
 - system status
 - selectedIncidentId
+- simulationStatus, simulationStep, simulationEvent
 
 Important actions include:
 
@@ -324,6 +325,7 @@ Important actions include:
 - dispatchResource
 - upsertRoute
 - removeRoute
+- startSimulation, pauseSimulation, resetSimulation, advanceSimulation
 
 ---
 
@@ -763,6 +765,18 @@ Emergency Route Visualization — COMPLETED.
 - Build result: `npm.cmd run build` completed successfully.
 - Manual validation: fire and medical routes rendered after dispatch, route visibility followed incident selection, an incident without a route showed none, refresh reset mock route state, and no browser console errors were found.
 - Limitations: mock geographic geometry only; no road routing, traffic data, external APIs, live GPS, or route completion simulation.
+
+## Phase 6
+Live Crisis Simulation — IMPLEMENTED; validation in progress.
+
+- Added `src/services/simulationEngine.ts` with the deterministic Major Flood Response event sequence and a single controlled timer.
+- Zustand owns simulation status, step, event message, and start/pause/reset/advance actions.
+- The scenario selects the flood incident, pauses for explicit operator dispatch, then uses an active OSRM route to advance a resource location and lower its ETA.
+- It adds a flood-risk alert/update and ends by containing the incident and releasing assigned resources.
+- The simulation control is in `src/components/layout/BottomStrip.tsx`.
+- Build result: `npm.cmd run build` completed successfully.
+- Reset now deep-clones the canonical mock incidents, resources, risk zones, hospitals, alerts, and recommendations; clears routes; restores the original selected incident; and regenerates allocation recommendations from restored data.
+- Known limitations: state remains in memory and routing depends on public OSRM/network availability.
 
 ---
 
