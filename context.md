@@ -185,12 +185,15 @@ Current mock resources include:
 - MED-22
 - TRIAGE-5
 - POLICE-31
+- FIRE-11
+- MED-18
+- RESCUE-21
 
 ---
 
 # 7. CURRENT RESOURCE MOCK STATE
 
-Current mock data:
+Current mock data contains 9 resources. It is intentionally mixed so the recommendation workflow can be demonstrated while retaining a believable emergency-response state.
 
 RESCUE-12
 - rescue_team
@@ -228,6 +231,26 @@ POLICE-31
 - unassigned
 - capacity 4
 
+FIRE-11
+- fire_truck
+- available reserve
+- unassigned
+- capacity 6
+
+MED-18
+- ambulance
+- available reserve
+- unassigned
+- capacity 4
+
+RESCUE-21
+- rescue_team
+- available reserve
+- unassigned
+- capacity 10
+
+Some resources remain busy or dispatched, while the available reserve resources allow suitable deployable recommendations for fire, medical, structural-collapse, and accident incidents.
+
 ---
 
 # 8. HOSPITAL SYSTEM
@@ -259,6 +282,7 @@ The map currently displays:
 - resources
 - hospitals
 - risk zones
+- the selected incident's active emergency response route
 
 Incident selection is synchronized with the application state.
 
@@ -278,6 +302,9 @@ The store currently manages:
 - hospitals
 - alerts
 - recommendations
+- allocationRecommendations
+- allocationIncidentId
+- routes
 - system status
 - selectedIncidentId
 
@@ -293,6 +320,10 @@ Important actions include:
 - acknowledgeAlert
 - setSystemStatus
 - selectIncident
+- calculateAllocationForSelectedIncident
+- dispatchResource
+- upsertRoute
+- removeRoute
 
 ---
 
@@ -403,67 +434,47 @@ Critical
 
 ---
 
-# 14. RESOURCE ALLOCATION — CURRENT PHASE
+# 14. RESOURCE ALLOCATION AND DISPATCH — PHASE 4 COMPLETED
 
-Phase 4 is currently being implemented.
+Phase 4 is complete. Current Phase 4 architecture:
 
 Goal:
 
-Selected Incident
+Incident
 ↓
-Resource Allocation Engine
+Automated triage
 ↓
-Evaluate resources
+Resource allocation
 ↓
-Rank resources
+Ranked recommendations
 ↓
-Explain recommendations
-↓
-Display recommendations
-↓
-Human operator chooses
+Human confirmation
 ↓
 Dispatch
+↓
+Resource assignment
+↓
+Mock ETA
+↓
+Updated UI/map state
 
 IMPORTANT:
 
-Resource allocation must NOT automatically dispatch resources.
+Resource allocation must NOT automatically dispatch resources; dispatch requires explicit human confirmation.
 
 The system should recommend resources to the human operator.
 
 ---
 
-# 15. RESOURCE ALLOCATION ENGINE
+# 15. RESOURCE ALLOCATION ENGINE AND DISPATCH
 
-The planned service:
+`src/services/resourceAllocationService.ts` is a pure deterministic ranking service. It accepts incident and resource inputs, calculates suitability, geographic distance, availability, capacity, incident severity, and existing-assignment factors, and returns explainable ranked recommendations. It does not mutate Zustand, incidents, resources, UI, or dispatch state.
 
-src/services/resourceAllocationService.ts
+`src/services/dispatchService.ts` handles dispatch validation and deterministic mock ETA calculation. Zustand stores allocation recommendations and applies successful dispatch state changes.
 
-It should be a pure deterministic service.
+Resources become `dispatched` only after explicit human confirmation. After successful dispatch, the resource receives `assignedIncidentId` and the incident receives the resource ID in `assignedResourceIds`.
 
-It should:
-- accept Incident + Resource[]
-- calculate suitability
-- calculate geographic distance
-- consider availability
-- consider capacity
-- consider incident severity
-- consider existing assignments
-- produce explainable scores
-
-It must NOT:
-- modify Zustand
-- modify incidents
-- modify resources
-- dispatch anything
-- modify UI
-- call APIs
-
-Distance should initially use Haversine/geographic distance.
-
-This is NOT road distance.
-
-Do not claim it represents actual traffic travel time.
+ETA is a deterministic mock estimate based on geographic distance. It is not traffic-aware and is not road-network routing. State is currently in-memory and resets on page reload.
 
 ---
 
@@ -558,18 +569,18 @@ No randomness.
 
 ---
 
-# 19. ROUTING
+# 19. PHASE 5 — EMERGENCY ROUTE VISUALIZATION
+Goal: after a resource is dispatched, visualize an emergency response route between the resource and incident on the Leaflet map.
 
-Existing type:
+Existing route type: `src/types/route.types.ts`
 
-EmergencyRoute
-
-It contains:
-- resource ID
-- destination ID
-- coordinate path
-- distance
-- duration
+`EmergencyRoute` contains:
+- id
+- resourceId
+- destinationId
+- path
+- distanceMeters
+- durationSeconds
 - status
 
 Statuses:
@@ -578,9 +589,15 @@ Statuses:
 - completed
 - blocked
 
-There is currently no route service.
+Phase 5 is complete.
 
-Routing should be implemented later.
+`src/services/routeService.ts` is a pure deterministic service that generates active `EmergencyRoute` objects from a dispatched resource location and incident location. Each route starts at the resource, ends at the incident, and includes two deterministic intermediate points for a visually useful non-looping mock route geometry.
+
+Zustand stores active routes in `routes`. On successful human-confirmed dispatch, the store validates the dispatch, updates resource and incident assignment state, generates the route, and stores it. Failed dispatches do not generate routes.
+
+`src/components/map/EmergencyRouteLayer.tsx` renders the currently selected incident's active route as a Leaflet polyline. `SidebarRight.tsx` displays a compact response-route card with the dispatched resource, incident, mock ETA, and active route status.
+
+The route geometry, distance, and ETA are deterministic mock values based on geographic coordinates. They are not traffic-aware, not road-network routing, not live GPS, and use no external APIs. Route and dispatch state remain in memory and reset on reload.
 
 ---
 
@@ -674,37 +691,17 @@ When starting a new AI conversation:
 
 # 24. CURRENT PROJECT STATUS
 
-Completed:
+- Phase 1 — Command Center MVP: COMPLETED
+- Phase 2 — Incident/map/state functionality: COMPLETED
+- Phase 3 — Citizen SOS + automated triage: COMPLETED
+- Phase 4A — Resource Allocation Engine: COMPLETED
+- Phase 4B — Allocation integrated with Zustand: COMPLETED
+- Phase 4C — Resource Recommendations UI: COMPLETED
+- Phase 4D — Realistic deployable mock resource state: COMPLETED
+- Phase 4E — Human-confirmed Resource Dispatch: COMPLETED
+- Phase 5 — Emergency Route Visualization: COMPLETED
 
-- Base crisis command center UI
-- Incident queue
-- Crisis map
-- Incident markers
-- Resource markers
-- Hospital markers
-- Risk zones
-- Alerts
-- Zustand state
-- Citizen SOS
-- Simulated SOS
-- Automatic incident triage
-- Explainable triage reasons
-- Incident details
-- Git repository setup
-
-Current:
-
-PHASE 4 — Resource Allocation
-
-Next:
-
-1. Build resourceAllocationService
-2. Validate ranking logic
-3. Connect allocation engine to Zustand
-4. Display recommendations in UI
-5. Add human dispatch action
-6. Add resource assignment synchronization
-7. Begin route optimization
+Next: future route lifecycle simulation or real routing only if explicitly requested.
 
 ---
 
@@ -744,7 +741,28 @@ Incident/map/state functionality.
 Citizen SOS + automated triage.
 
 ## Phase 4
-Resource allocation — IN PROGRESS.
+Resource allocation and human-confirmed dispatch — COMPLETED.
+
+- Added `src/services/resourceAllocationService.ts` for deterministic, explainable ranking.
+- Added allocation recommendation state and selected-incident calculation in Zustand.
+- Added resource recommendations UI in the right sidebar.
+- Expanded mock resources to 9 intentionally mixed busy/dispatched/available units.
+- Added `src/services/dispatchService.ts` for dispatch validation and mock ETA calculation.
+- Added confirmed-dispatch state synchronization for resources and incidents.
+- Build result: `npm.cmd run build` completed successfully.
+
+## Phase 5
+Emergency Route Visualization — COMPLETED.
+
+- Added `src/services/routeService.ts`.
+- Added `routes`, `upsertRoute`, and `removeRoute` to `src/store/useCrisisStore.ts`.
+- Successful human-confirmed dispatch now creates and stores one active deterministic route.
+- Added `src/components/map/EmergencyRouteLayer.tsx` and mounted it in `CrisisMap.tsx`.
+- Added compact active-route status to `SidebarRight.tsx`.
+- Updated `src/styles/theme.css` for the route status card.
+- Build result: `npm.cmd run build` completed successfully.
+- Manual validation: fire and medical routes rendered after dispatch, route visibility followed incident selection, an incident without a route showed none, refresh reset mock route state, and no browser console errors were found.
+- Limitations: mock geographic geometry only; no road routing, traffic data, external APIs, live GPS, or route completion simulation.
 
 ---
 
@@ -755,9 +773,11 @@ At the end of each significant task, update this file with:
 - what was completed
 - files changed
 - architecture changes
-- tests performed
-- current known issues
+- build result and tests performed
+- current known limitations
 - next recommended step
+
+After every completed phase, CONTEXT.md must record the build result, files changed, known limitations, and next phase.
 
 Do not delete previous context unless it is genuinely obsolete.
 
