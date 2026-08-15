@@ -6,6 +6,7 @@ interface OsrmRouteResponse { code?: string; routes?: Array<{ distance?: number;
 const routeId = (resourceId: string, destinationId: string) => `route-${resourceId}-${destinationId}`
 
 export const createPlannedRoute = (resourceId: string, destinationId: string): EmergencyRoute => ({ id: routeId(resourceId, destinationId), resourceId, destinationId, path: [], distanceMeters: null, durationSeconds: null, status: 'planned' })
+export const createPendingRoute = (resourceId: string, destinationId: string, error: string): EmergencyRoute => ({ id: routeId(resourceId, destinationId), resourceId, destinationId, path: [], distanceMeters: null, durationSeconds: null, status: 'pending', error })
 
 export async function fetchEmergencyRoute(resourceId: string, resourceLocation: GeoPoint, destinationId: string, destinationLocation: GeoPoint): Promise<EmergencyRoute> {
   const coordinates = `${resourceLocation.lng},${resourceLocation.lat};${destinationLocation.lng},${destinationLocation.lat}`

@@ -778,6 +778,21 @@ Live Crisis Simulation — IMPLEMENTED; validation in progress.
 - Reset now deep-clones the canonical mock incidents, resources, risk zones, hospitals, alerts, and recommendations; clears routes; restores the original selected incident; and regenerates allocation recommendations from restored data.
 - Known limitations: state remains in memory and routing depends on public OSRM/network availability.
 
+## Phase 7
+Offline / Low-Connectivity Resilience — COMPLETED.
+
+- Added deterministic local-first connectivity state using the existing Zustand `system` state: `online`, `degraded`, and `offline`, plus an explicit `syncing` status.
+- Added `src/types/offline.types.ts` and `src/services/offlineQueueService.ts` for typed, FIFO, de-duplicated local synchronization actions. The Zustand store owns the queue and keeps `pendingSyncActions` accurate for the UI.
+- Added `src/services/syncService.ts` for clearly labeled simulated local synchronization. When connectivity returns online, pending actions are acknowledged in FIFO order and the stored last-sync timestamp is updated. No backend or external sync service is used.
+- Citizen SOS continues to create and select incidents immediately. In degraded or offline modes, the SOS action is retained locally for simulated synchronization and the intake form makes that status clear.
+- Human-confirmed dispatch remains mandatory. Degraded/offline confirmations update incident and resource state locally and queue the dispatch synchronization action; no dispatch is automated.
+- OSRM requests are never made in offline mode. The route is marked pending with an explicit connectivity message and is retried when online connectivity returns. In degraded mode, OSRM is attempted and failures remain pending for a later retry.
+- Added compact connectivity controls in `BottomStrip` for online, degraded, and offline demos, plus connectivity/sync display and `Pending sync: N` status.
+- Files changed: `src/store/useCrisisStore.ts`, `src/types/system.types.ts`, `src/types/route.types.ts`, `src/types/offline.types.ts`, `src/services/offlineQueueService.ts`, `src/services/syncService.ts`, `src/services/routeService.ts`, `src/app/App.tsx`, `src/components/status/ConnectivityIndicator.tsx`, `src/components/status/SystemStatusBar.tsx`, `src/components/layout/BottomStrip.tsx`, `src/components/layout/SidebarRight.tsx`, `src/components/sos/CitizenSosModal.tsx`, and `src/styles/theme.css`.
+- Build result: `npm.cmd run build` completed successfully.
+- Known limitations: all local state and queued actions are in memory and reset on page reload; synchronization is an intentionally simulated local acknowledgement; OSRM and map tiles still depend on external network availability when online/degraded.
+- Next: persist local state only if explicitly requested, or add a backend synchronization contract in a future phase.
+
 ---
 
 # 27. AI HANDOFF RULE
